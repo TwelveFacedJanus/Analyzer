@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.26)
 project(Analyzer LANGUAGES CXX)
 
-# Use Ninja generator for module support
-set(CMAKE_GENERATOR "Ninja" CACHE STRING "Generator to use" FORCE)
+# Set policies to ensure compatibility with dependencies
+cmake_policy(VERSION 3.26)
 
 # Standard and compiler settings
 set(CMAKE_CXX_STANDARD 23)
@@ -36,29 +36,22 @@ option(GLFW_BUILD_EXAMPLES "Build GLFW examples" OFF)
 option(GLFW_BUILD_TESTS "Build GLFW tests" OFF)
 option(GLFW_BUILD_DOCS "Build GLFW documentation" OFF)
 
-FetchContent_MakeAvailable(glfw)
-
-# Module libraries
-add_library(numbers_common)
-target_sources(numbers_common
-  PUBLIC
-    FILE_SET CXX_MODULES
-    TYPE CXX_MODULES
-    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules
-    FILES modules/numbers_common.cppm
+# GLAD configuration - modified to work with newer CMake
+FetchContent_Declare(
+    glad
+    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+    GIT_TAG v2.0.8
+    # Override the minimum version requirement
+    OVERRIDE_FIND_PACKAGE
 )
 
-add_library(application)
-target_sources(application
-  PUBLIC
-    FILE_SET CXX_MODULES
-    TYPE CXX_MODULES
-    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules
-    FILES modules/application.cppm
-)
+# Set GLAD options before making it available
+set(GLAD_PROFILE "core" CACHE STRING "OpenGL profile")
+set(GLAD_API "gl=4.6" CACHE STRING "OpenGL API version")
+set(GLAD_GENERATOR "c++" CACHE STRING "GLAD generator")
 
-# Explicit module dependencies
-target_link_libraries(application PRIVATE numbers_common)
+# Make dependencies available
+FetchContent_MakeAvailable(glfw glad)
 
 # Main executable
 add_executable(analyzer
@@ -67,16 +60,15 @@ add_executable(analyzer
 
 # Link dependencies
 target_link_libraries(analyzer PRIVATE 
-    application
-    numbers_common
     glfw
+    glad
 )
 
 # Include directories
 target_include_directories(analyzer PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/modules
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# GLFW include (already handled by target_link_libraries)
-# Modern CMake targets export their includes automatically
+# OpenGL
+find_package(OpenGL REQUIRED)
+target_link_libraries(analyzer PRIVATE OpenGL::GL)
